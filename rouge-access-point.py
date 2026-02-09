@@ -15,6 +15,11 @@ import getopt
 import subprocess
 import threading
 
+__project_github__ = "https://github.com/newdaynewburner/rouge-access-point"
+__version__ = "0.1"
+__author__ = "Brandon Hammond"
+__author_email__ = "newdaynewburner@gmail.com"
+
 # Begin execution
 if __name__ == "__main__":
     # Parse command line arguments
@@ -40,9 +45,9 @@ if __name__ == "__main__":
 
         elif opt in ("-v", "--version"):
             # Display the version message
-            print("Rouge Access Point")
-            print("Version 0.1")
-            print("By Brandon Hammond <newdaynewburner@gmail.com>")
+            print(f"Rouge Access Point ({__project_github__})")
+            print(f"Version {__version__}")
+            print(f"By {__author__} <{__author_email__}>")
             sys.exit(0)
 
         elif opt in ("-d", "--debug"):
