@@ -1,0 +1,13 @@
+# Project
+TODO.txt
+test/
+config/devel
+doc/devel
+util/devel
+
+# Python
+*.pyc
+__pycache__/
+
+# Program Logs
+*.log
