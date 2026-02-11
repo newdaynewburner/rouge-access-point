@@ -23,6 +23,11 @@ __author_email__ = "newdaynewburner@gmail.com"
 
 # Begin execution
 if __name__ == "__main__":
+    # Check if running as root
+    if os.geteuid() != 0:
+        print("This script MUST be ran as root! Quitting!")
+        sys.exit(0)
+
     # Parse command line arguments
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hvdc:", (
