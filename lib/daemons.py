@@ -34,6 +34,7 @@ class Daemon(object):
     def __process_start__(self):
         """ Start the daemon in a seperate process
         """
+        print(self.command.split(" "))
         self.daemon_process = subprocess.Popen(
             self.command.split(" "),
             stdout=subprocess.PIPE,

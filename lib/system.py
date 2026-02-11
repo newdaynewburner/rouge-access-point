@@ -69,7 +69,7 @@ class SystemInitializer(object):
             self.logger.info(f"[Initialization Sequence] Stopped dnsmasq")
 
         # NetworkManager compatability mode
-        if bool(self.config["SYSTEM"]["nm_compatability_mode"]):
+        if self.config["SYSTEM"]["nm_compatability_mode"] == "true":
             for interface in self.interfaces.values():
                 interface.stop_management()
                 self.logger.info(f"[Initialization Sequence] {interface.name} removed from NetworkManager management")
@@ -88,7 +88,7 @@ class SystemInitializer(object):
             self.logger.info(f"[Initiailization Sequence] Set the MAC address of the broadcast interface to '{self.config['AP']['bssid']}'")
 
         # Bring the interface up and enable IP forwarding for IPv4 and IPv6, then enable masquerading
-        self.interface["broadcast"].set_state("up")
+        self.interfaces["broadcast"].set_state("up")
         self.logger.info(f"[Initiailization Sequence] Brought the broadcast interface up")
         for command in [
             ["sysctl", "-w", "net.ipv4.ip_forward=1"],

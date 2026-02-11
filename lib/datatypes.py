@@ -19,6 +19,7 @@ class Component(object):
         """ Initialize the object
         """
         self.name = name
+        self.config = config
         self.install_dir = os.path.join(self.config["COMPONENT"]["component_install_dir"], self.name)
         self.log_dir = self.config["COMPONENT"]["log_dir"]
         if self.name == "ap-host":
@@ -41,7 +42,26 @@ class Component(object):
         self.component_config = configparser.ConfigParser()
         self.component_config.read(self.component_config_file)
         self.daemon = daemons.Daemon(
-            f"{self.config['COMPONENT']['python']} {self.script} {self.component_config_file}"
+            f"{self.config['COMPONENT']['python']} {self.script} {self.component_config_file}",
             name=self.name,
             description=self.desc
         )
+
+    def start(self):
+        """ Start the component
+        """
+        self.daemon.start()
+        return None
+
+    def showouts(self):
+        """ Show STDOUT and STDERR
+        """
+        print(self.daemon.stdout.readline())
+        print(self.daemon.stderr.readline())
+        return None
+
+    def stop(self):
+        """ Stop the component
+        """
+        self.daemon.stop()
+        return None

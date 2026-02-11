@@ -21,6 +21,44 @@ __version__ = "0.1"
 __author__ = "Brandon Hammond"
 __author_email__ = "newdaynewburner@gmail.com"
 
+def main(debug, config, logger, initializer, components, interfaces):
+    """ Contains main high-level program logic
+
+    Arguments:
+        debug - bool - Enables debugging mode if True
+        config - ConfigParser object - Readable configuration file data
+        logger - Logger object - Active message logger
+        initializer - Initializer object - Active Initializer object instance
+        components - dict - Contains Component objects for the components
+        interfaces - dict - Contains Interface objects for the interfaces
+
+    Returns:
+        None
+    """
+
+    # Start each component
+    logger.info(f"[Main Thread] Bringing up the AP now")
+    start_order = (components["dhcp-server"], components["ap-host"], components["dns-server"])
+    for component in start_order:
+        logger.info(f"[Main Thread] Starting '{component}' component as daemon...")
+        component.start()
+        logger.info(f"[Main Thread] ...Done! The '{component}' was started successfully!")
+    logger.info(f"[Main Thread] All component daemons have been started and the AP is now up!")
+
+    x = 0
+    while x < 60:
+        for component in start_order:
+            component.showouts()
+        time.sleep(1)
+        x = x + 1
+
+    input("Press [ENTER] to stop the AP")
+    components["ap-host"].stop()
+    components["dhcp-server"].stop()
+    components["dns-server"].stop()
+
+    return None
+
 # Begin execution
 if __name__ == "__main__":
     # Check if running as root
@@ -87,4 +125,7 @@ if __name__ == "__main__":
     components = rvals["stage_1"]["rvals"]["components"]
     interfaces = rvals["stage_2"]["rvals"]["interfaces"]
     logger.info(f"[Main Process] Initialization sequence is complete!")
+
+    # Enter the main function
+    main(debug, config, logger, initializer, components, interfaces)
 

@@ -14,9 +14,9 @@ from . import exceptions
 def _write_component_config(component_config_path, component_config):
     """ Helper function that writes per-component configuration files
     """
-    if not os.path.isdir(os.path.split(component_config_path[0])):
-        os.mkdirs(os.path.split(component_config_path[0]))
-    with open(component_config_path, "w") as ccf:
+    if not os.path.isdir(os.path.split(component_config_path)[0]):
+        os.makedirs(os.path.split(component_config_path)[0])
+    with open(component_config_path, "w") as f:
         component_config.write(f)
     return component_config_path
 
@@ -28,7 +28,7 @@ def gen_ap_host_config(config):
         "broadcast_iface": config["HARDWARE"]["broadcast_iface"],
         "driver": config["HARDWARE"]["wireless_driver"],
         "essid": config["AP"]["essid"],
-        "band": "g" if config["AP"]["band"] == "2.4g" else "a" if config["AP"]["band"] == "5g" else None) ,
+        "band": "g" if config["AP"]["band"] == "2.4g" else "a" if config["AP"]["band"] == "5g" else None,
         "channel": config["AP"]["channel"],
         "security": config["AP"]["security"],
         "passphrase": config["AP"]["passphrase"],
