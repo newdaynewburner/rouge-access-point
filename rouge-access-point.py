@@ -14,6 +14,7 @@ import configparser
 import getopt
 import subprocess
 import threading
+from lib.system import SystemInitializer
 
 __project_github__ = "https://github.com/newdaynewburner/rouge-access-point"
 __version__ = "0.1"
@@ -72,4 +73,13 @@ if __name__ == "__main__":
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
     logger = logging.getLogger()
-    logger.info(f"[Main Process] Started rouge access point initialization sequence. Preparing the system now...")
+    logger.info(f"[Main Process] Begin logging for current run")
+
+    # Preform the main initialization sequence and extract the components and interfaces from the return values
+    logger.info(f"[Main Process] Now preforming the main initialization sequence")
+    initializer = SystemInitializer(debug, config, logger)
+    rvals = initializer.preform_initialization_sequence()
+    components = rvals["stage_1"]["rvals"]["components"]
+    interfaces = rvals["stage_2"]["rvals"]["interfaces"]
+    logger.info(f"[Main Process] Initialization sequence is complete!")
+
