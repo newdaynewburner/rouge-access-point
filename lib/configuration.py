@@ -43,11 +43,17 @@ def gen_dhcp_server_config(config):
     """
     component_config = configparser.ConfigParser()
     component_config["DHCP"] = {
-        "server_ip": config["NETWORK"]["gateway"],
-        "subnet_mask": config["NETWORK"]["subnet_mask"],
+        "interface": config["HARDWARE"]["broadcast_iface"],
+        "pool_start": config["DHCP"]["pool_start"],
+        "pool_end": config["DHCP"]["pool_end"],
+        "lease_time": config["DHCP"]["lease_time"],
+        "static_lease_file": config["DHCP"]["static_lease_file"],
+        "gateway": config["NETWORK"]["gateway"],
         "dns_server": config["NETWORK"]["dns_server"],
-        "lease_pool": config["DHCP"]["ip_pool"],
-        "lease_ttl": config["DHCP"]["ttl"]
+        "dnsmasq_executable": config["SYSTEM"]["dnsmasq_executable"],
+        "dnsmasq_config_file": config["SYSTEM"]["dnsmasq_config_file"],
+        "dnsmasq_lease_file": config["SYSTEM"]["dnsmasq_lease_file"],
+        "dnsmasq_dhcp_script": config["SYSTEM"]["dnsmasq_dhcp_script"]
     }
     component_config_path = _write_component_config(os.path.join(config["COMPONENT"]["generated_config_dir"], "dhcp-server.ini"), component_config)
     return component_config_path
