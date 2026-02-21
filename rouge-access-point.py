@@ -36,12 +36,21 @@ def main(debug, config, logger, initializer, components, interfaces):
         None
     """
 
+    # Start the core component service daemons
+    for component in [
+        components["ap-host"],
+        components["dhcp-server"],
+        components["dns-server"],
+    ]:
+        component.start_daemon()
+
+
     # Start each component
     logger.info(f"[Main Thread] Bringing up the AP now")
     start_order = (components["dhcp-server"], components["ap-host"], components["dns-server"])
     for component in start_order:
         logger.info(f"[Main Thread] Starting '{component}' component as daemon...")
-        component.start()
+        component.start_daemon()
         logger.info(f"[Main Thread] ...Done! The '{component}' was started successfully!")
     logger.info(f"[Main Thread] All component daemons have been started and the AP is now up!")
 
@@ -72,7 +81,7 @@ if __name__ == "__main__":
             "help",
             "version",
             "debug",
-            "config="
+            "config=",
         ))
     except getopt.GetoptError as err_msg:
         raise(err_msg)

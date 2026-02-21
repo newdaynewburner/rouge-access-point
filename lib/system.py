@@ -8,6 +8,7 @@ import os
 import sys
 import subprocess
 from . import datatypes
+from . import daemons
 from . import interfaces
 from . import exceptions
 
@@ -138,6 +139,8 @@ class SystemInitializer(object):
             if stage == 1:
                 self.logger.info(f"[Initialization Sequence] Preforming stage 1 initialization tasks")
                 components = self._load_components()
+                for component in components:
+                    component.start_daemon()
                 rvals["stage_1"]["complete"] = True
                 rvals["stage_1"]["rvals"]["components"] = components
             elif stage == 2:
@@ -158,10 +161,12 @@ class SystemInitializer(object):
         components = self._load_components()
         rvals["stage_1"]["complete"] = True
         rvals["stage_1"]["rvals"]["components"] = components
+
         self.logger.info(f"[Initialization Sequence] Preforming stage 2 initialization tasks")
         interfaces = self._load_interfaces()
         rvals["stage_2"]["complete"] = True
         rvals["stage_2"]["rvals"]["interfaces"] = interfaces
+
         self.logger.info(f"[Initialization Sequence] Preforming stage 3 initialization tasks")
         self._setup_networking()
         rvals["stage_3"]["complete"] = True
