@@ -82,10 +82,10 @@ class ConsoleCommands(object):
     def start(self, component):
         """ Start a component
         """
-        if not component in self.components.keys:
+        if not component in self.components.keys():
             raise exceptions.ConsoleCommandError("Invalid component name '{component}'! No such component exists!")
         try:
-            api = self.components[component].api
+            api = self.components[component].get_api()
             api.Start()
         except Exception as err_msg:
             raise exceptions.DBusAPIError(f"Got error from DBus API of component {component}! Endpoint: Start - Error Message: {err_msg}")
@@ -94,7 +94,7 @@ class ConsoleCommands(object):
     def stop(self, component):
         """ Stop a component
         """
-        if not component in self.components.keys:
+        if not component in self.components.keys():
             raise exceptions.ConsoleCommandError("Invalid component name '{component}'! No such component exists!")
         try:
             api = self.components[component].api
@@ -106,7 +106,7 @@ class ConsoleCommands(object):
     def restart(self, component):
         """ Restart a component
         """
-        if not component in self.components.keys:
+        if not component in self.components.keys():
             raise exceptions.ConsoleCommandError("Invalid component name '{component}'! No such component exists!")
         try:
             api = self.components[component].api

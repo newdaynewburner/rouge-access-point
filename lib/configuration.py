@@ -20,7 +20,7 @@ def _write_component_config(component_config_path, component_config):
         component_config.write(f)
     return component_config_path
 
-def gen_ap_host_config(config):
+def gen_ap_host_config(config_path, config):
     """ Generate ap-host config
     """
     component_config = configparser.ConfigParser()
@@ -33,12 +33,13 @@ def gen_ap_host_config(config):
         "security": config["AP"]["security"],
         "passphrase": config["AP"]["passphrase"],
         "hostapd_executable": config["SYSTEM"]["hostapd_executable"],
-        "hostapd_config_file": config["SYSTEM"]["hostapd_config_file"]
+        "hostapd_config_file": config["SYSTEM"]["hostapd_config_file"],
+        "log_file": ""
     }
-    component_config_path = _write_component_config(os.path.join(config["COMPONENT"]["generated_config_dir"], "ap-host.ini"), component_config)
+    component_config_path = _write_component_config(config_path, component_config)
     return component_config_path
 
-def gen_dhcp_server_config(config):
+def gen_dhcp_server_config(config_path, config):
     """ Generate dhcp-server config
     """
     component_config = configparser.ConfigParser()
@@ -53,12 +54,13 @@ def gen_dhcp_server_config(config):
         "dnsmasq_executable": config["SYSTEM"]["dnsmasq_executable"],
         "dnsmasq_config_file": config["SYSTEM"]["dnsmasq_config_file"],
         "dnsmasq_lease_file": config["SYSTEM"]["dnsmasq_lease_file"],
-        "dnsmasq_dhcp_script": config["SYSTEM"]["dnsmasq_dhcp_script"]
+        "dnsmasq_dhcp_script": config["SYSTEM"]["dnsmasq_dhcp_script"],
+        "log_file": ""
     }
-    component_config_path = _write_component_config(os.path.join(config["COMPONENT"]["generated_config_dir"], "dhcp-server.ini"), component_config)
+    component_config_path = _write_component_config(config_path, component_config)
     return component_config_path
 
-def gen_dns_server_config(config):
+def gen_dns_server_config(config_path, config):
     """ Generate dns-server config
     """
     component_config = configparser.ConfigParser()
@@ -69,7 +71,8 @@ def gen_dns_server_config(config):
         "backup_upstream": config["DNS"]["backup_upstream"],
         "laddr": config["DNS"]["laddr"],
         "lport": config["DNS"]["lport"],
-        "ttl": config["DNS"]["ttl"]
+        "ttl": config["DNS"]["ttl"],
+        "log_file": ""
     }
-    component_config_path = _write_component_config(os.path.join(config["COMPONENT"]["generated_config_dir"], "dns-server.ini"), component_config)
+    component_config_path = _write_component_config(config_path, component_config)
     return component_config_path

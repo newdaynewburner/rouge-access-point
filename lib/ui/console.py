@@ -17,12 +17,13 @@ class ApplicationConsole(object):
     """ Contains the primary application interface
     """
 
-    def __init__(self, components, interfaces, config=None, logger=None):
+    def __init__(self, components, plugins, interfaces, config=None, logger=None):
         """ Initialize the object
         """
         self.config = config
         self.logger = logger
         self.components = components
+        self.plugins = plugins
         self.interfaces = interfaces
         self.commands = commands.ConsoleCommands(self, components, interfaces, config=self.config, logger=self.logger)
         self.expected_input_source = "user"
@@ -41,16 +42,18 @@ class ApplicationConsole(object):
                 args = parts[1:]
             else:
                 args = []
+            print(command)
+            print(args)
             return command, args
 
         # Loop until shutdown initiated
-        self._show_banner(clear=True)
+        self.commands.banner(clear=True)
         while True:
             # Determine input source, get the input, and parse it
-            if expected_input_source == "user":
+            if self.expected_input_source == "user":
                 # Get user input
                 command_string = input("> ")
-            elif expected_input_source == "scripted":
+            elif self.expected_input_source == "scripted":
                 # Get scripted inputs
                 if not self.command_sequence:
                     raise exceptions.ConsoleCommandError(f"Cannot have scripted input without a CommandSequence!")

@@ -1,11 +1,13 @@
 #!/bin/sh
 
-####################################################################################################################################
-# install.sh                                                                                                                       #
-#                                                                                                                                  #
-# Installation script for rouge-access-point. Handles setting up the main script, rouge-access-point.py, the setup of the included #
-# utilities, creation of necessary files and environmental variables, and also the fetching of the core components from GitHub and #
-# their installation as well. THIS SCRIPT MUST BE RAN AS ROOT!                                                                     #
-####################################################################################################################################
+##############################################
+# install.sh                                 #
+#                                            #
+# Installation script for rouge-access-point #
+##############################################
 
-
+# Main application targets
+APP_NAME="rouge-access-point"
+MAIN_SOURCE_DIR="/usr/lib/rouge-access-point/core"
+COMPONENT_SOURCE_DIR="/usr/lib/rouge-access-point/components"
+PLUGIN_SOURCE_DIR="/usr/lib/rouge-access-point/plugins"

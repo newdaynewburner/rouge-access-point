@@ -9,91 +9,82 @@ Tool for creating a highly-versatile rouge access point
 import os
 import sys
 import time
-import logging
-import configparser
-import getopt
 import subprocess
-import threading
-from lib.system import SystemInitializer
+import logging
+import getopt
+import configparser
+from lib import system, configuration
+from lib.datatypes import components, plugins, interfaces
+from lib.ui import console
 
 __project_github__ = "https://github.com/newdaynewburner/rouge-access-point"
 __version__ = "0.1"
 __author__ = "Brandon Hammond"
 __author_email__ = "newdaynewburner@gmail.com"
 
-def main(debug, config, logger, initializer, components, interfaces):
+def main(debug, config, logger, component_objects, plugin_objects, interface_objects):
     """ Contains main high-level program logic
-
-    Arguments:
-        debug - bool - Enables debugging mode if True
-        config - ConfigParser object - Readable configuration file data
-        logger - Logger object - Active message logger
-        initializer - Initializer object - Active Initializer object instance
-        components - dict - Contains Component objects for the components
-        interfaces - dict - Contains Interface objects for the interfaces
-
-    Returns:
-        None
     """
 
-    # Start the core component service daemons
-    for component in [
-        components["ap-host"],
-        components["dhcp-server"],
-        components["dns-server"],
+    ###################################
+    # 10. ENTER THE CONSOLE INTERFACE #
+    ###################################
+    logger.info(f"Initializing console interface")
+    time.sleep(1)
+    console_ui = console.ApplicationConsole(component_objects, plugin_objects, interface_objects, config=config, logger=logger)
+    console_ui.console_interface()
+
+    #######################################
+    # 11. RESTART NETWORKMANAGER AND EXIT #
+    #######################################
+    logger.info(f"Exited console interface, preforming clean shutdown tasks and exiting")
+    for component in component_objects.values():
+        d = component.get_daemon()
+        d.stop()
+    for command in [
+        ["systemctl", "start", "NetworkManager"]
     ]:
-        component.start_daemon()
-
-
-    # Start each component
-    logger.info(f"[Main Thread] Bringing up the AP now")
-    start_order = (components["dhcp-server"], components["ap-host"], components["dns-server"])
-    for component in start_order:
-        logger.info(f"[Main Thread] Starting '{component}' component as daemon...")
-        component.start_daemon()
-        logger.info(f"[Main Thread] ...Done! The '{component}' was started successfully!")
-    logger.info(f"[Main Thread] All component daemons have been started and the AP is now up!")
-
-    x = 0
-    while x < 60:
-        for component in start_order:
-            component.showouts()
-        time.sleep(1)
-        x = x + 1
-
-    input("Press [ENTER] to stop the AP")
-    components["ap-host"].stop()
-    components["dhcp-server"].stop()
-    components["dns-server"].stop()
+        subprocess.call(command)
 
     return None
 
+
 # Begin execution
 if __name__ == "__main__":
-    # Check if running as root
+    #######################
+    # 1. PERMISSION CHECK #
+    #######################
     if os.geteuid() != 0:
         print("This script MUST be ran as root! Quitting!")
         sys.exit(0)
 
-    # Parse command line arguments
+    #####################
+    # 2. PARSE CLI ARGS #
+    #####################
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvdc:", (
+        opts, args = getopt.getopt(sys.argv[1:], "hvdfc:C:P:", (
             "help",
             "version",
             "debug",
+            "force-reinstallation"
             "config=",
+            "components=",
+            "plugins="
         ))
     except getopt.GetoptError as err_msg:
         raise(err_msg)
 
     debug = False
+    force_reinstall = False
     config_file = "config/rouge-access-point.ini"
+    component_list = ["ap-host", "dhcp-server", "dns-server"]
+    plugin_list = []
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             # Display the help message
             print("USAGE:")
-            print(f"\t{sys.argv[0]} [-h] [-v] [-d] [-c CONFIG_FILE]")
+            print(f"\t{sys.argv[0]} [-h] [-v] [-d] [-f] [-c CONFIG_FILE] [-C COMPONENTS] [-P PLUGINS]")
             sys.exit(0)
 
         elif opt in ("-v", "--version"):
@@ -107,6 +98,10 @@ if __name__ == "__main__":
             # Enable debugging mode
             debug = True
 
+        elif opt in ("-f", "--force-reinstallation"):
+            # Force reinstall of components and plugins
+            force_reinstall = True
+
         elif opt in ("-c", "--config"):
             # Specify an alternative configuration file
             if "~" in arg:
@@ -115,26 +110,97 @@ if __name__ == "__main__":
                 raise Exception("Specified configuration file does not exist! Check the filepath and try again!")
             config_file = arg
 
-    # Read the configuration file
+        elif opt in ("-C", "--components"):
+            # Specify components to use
+            component_list = args.split(",")
+
+        elif opt in ("-P", "--plugins"):
+            # Specify the plugins to use
+            plugin_list = args.split(",")
+
+    #######################
+    # 3. READ CONFIG FILE #
+    #######################
     config = configparser.ConfigParser()
     config.read(config_file)
 
-    # Set up the logger
+    ###################
+    # 4. SETUP LOGGER #
+    ###################
     logging.basicConfig(
         level=logging.DEBUG if debug else logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
     logger = logging.getLogger()
-    logger.info(f"[Main Process] Begin logging for current run")
+    logger.info(f"Begin logging. Initializing the program now.")
 
-    # Preform the main initialization sequence and extract the components and interfaces from the return values
-    logger.info(f"[Main Process] Now preforming the main initialization sequence")
-    initializer = SystemInitializer(debug, config, logger)
-    rvals = initializer.preform_initialization_sequence()
-    components = rvals["stage_1"]["rvals"]["components"]
-    interfaces = rvals["stage_2"]["rvals"]["interfaces"]
-    logger.info(f"[Main Process] Initialization sequence is complete!")
+    ######################
+    # 5. LOAD COMPONENTS #
+    ######################
+    component_installer = components.ComponentInstaller()
+    component_objects = {}
+    for component in component_list:
+        if not component_installer.check(component):
+            component_installer.install(component)
+        if force_reinstall:
+            component_installer.uninstall(component)
+            component_installer.install(component)
+        if component == "ap-host":
+            logger.info(f"Generating ap-host configuration file")
+            configuration.gen_ap_host_config(components.COMPONENT_DATA["ap-host"]["config"], config)
+        elif component == "dhcp-server":
+            logger.info(f"Generating dhcp-server configuration file")
+            configuration.gen_dhcp_server_config(components.COMPONENT_DATA["dhcp-server"]["config"], config)
+        elif component == "dns-server":
+            logger.info(f"Generating dns-server configuration file")
+            configuration.gen_dns_server_config(components.COMPONENT_DATA["dns-server"]["config"], config)
+        logger.info(f"Initializing Component object for component: {component}")
+        component_object = component_installer.get_object(component)
+        component_objects[component] = component_object
+    for component in component_objects.keys():
+        logger.info(f"Starting component: {component}")
+        d = component_objects[component].get_daemon()
+        d.start()
 
-    # Enter the main function
-    main(debug, config, logger, initializer, components, interfaces)
+    ###################
+    # 6. LOAD PLUGINS #
+    ###################
+    plugin_installer = plugins.PluginInstaller()
+    plugin_objects = {}
+    for plugin in plugin_list:
+        if not plugin_installer.check(plugin):
+            plugin_installer.install(plugin)
+        if force_reinstall:
+            plugin_installer.uninstall(plugin)
+            plugin_installer.install(plugin)
+        logger.info(f"Initializing Plugin object for plugin: {plugin}")
+        plugin_object = plugin_installer.get_object()
+        plugin_objects[plugin] = plugin_object
+
+    ######################
+    # 7. LOAD INTERFACES #
+    ######################
+    interface_objects = {}
+    logger.info(f"Loading broadcast interface")
+    interface_objects["broadcast"] = interfaces.WirelessInterface(config["HARDWARE"]["broadcast_iface"], manager="networkmanager")
+    if config["HARDWARE"]["forward_iface"]:
+        logger.info(f"Loading forward interface")
+        if config["HARDWARE"]["forward_iface_type"] == "wired":
+            interface_objects["forward"] = interfaces.WiredInterface(config["HARDWARE"]["forward_iface"], manager="networkmanager")
+        elif config["HARDWARE"]["forward_iface_type"] == "wireless":
+            interface_objects["forward"] = interfaces.WirelessInterface(config["HARDWARE"]["forward_iface"], manager="networkmanager")
+        else:
+            raise Exception(f"Invalid forward interface type specified in the config file!")
+
+    #######################
+    # 8. SETUP NETWORKING #
+    #######################
+    logger.info(f"Setting up system networking")
+    system.setup_networking(interface_objects, config=config, logger=logger)
+
+    ##########################
+    # 9. ENTER MAIN FUNCTION #
+    ##########################
+    logger.info(f"Entering main function")
+    main(debug, config, logger, component_objects, plugin_objects, interface_objects)
 
