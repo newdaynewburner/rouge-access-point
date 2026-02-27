@@ -22,30 +22,37 @@ __version__ = "0.1"
 __author__ = "Brandon Hammond"
 __author_email__ = "newdaynewburner@gmail.com"
 
-def main(debug, config, logger, component_objects, plugin_objects, interface_objects):
+def main(debug, config, logger, components, plugins, interfaces):
     """ Contains main high-level program logic
     """
 
-    ###################################
-    # 10. ENTER THE CONSOLE INTERFACE #
-    ###################################
-    logger.info(f"Initializing console interface")
-    time.sleep(1)
-    console_ui = console.ApplicationConsole(component_objects, plugin_objects, interface_objects, config=config, logger=logger)
-    console_ui.console_interface()
+    ####################################
+    # 9. SYSTEM NETWORKING SETUP TASKS #
+    ####################################
+    logger.info(f"Preforming system networking setup tasks")
+    system.setup_system_networking(interface, config=config, logger=logger)
 
-    #######################################
-    # 11. RESTART NETWORKMANAGER AND EXIT #
-    #######################################
-    logger.info(f"Exited console interface, preforming clean shutdown tasks and exiting")
-    for component in component_objects.values():
-        d = component.get_daemon()
+    ##############################################################
+    # 10. ENTER CONSOLE INTERFACE AND HANDLE COMMANDS UNTIL EXIT #
+    ##############################################################
+    logger.info(f"Entering console interface")
+
+    ########################################
+    # 11. SYSTEM NETWORKING TAKEDOWN TASKS #
+    ########################################
+    logger.info(f"Console exited, shutting down cleanly now. Reverting networking settings.")
+    system.takedown_system_networking(interfaces, config=config, logger=logger)
+
+    #######################
+    # 12. STOP COMPONENTS #
+    #######################
+    logger.info(f"Stopping component daemons")
+    for component in components.keys():
+        d = components[component].get_daemon()
         d.stop()
-    for command in [
-        ["systemctl", "start", "NetworkManager"]
-    ]:
-        subprocess.call(command)
+        logger.info(f"Stopped component: {component}")
 
+    logger.info(f"Shutdown complete, exiting now!")
     return None
 
 
@@ -192,14 +199,8 @@ if __name__ == "__main__":
         else:
             raise Exception(f"Invalid forward interface type specified in the config file!")
 
-    #######################
-    # 8. SETUP NETWORKING #
-    #######################
-    logger.info(f"Setting up system networking")
-    system.setup_networking(interface_objects, config=config, logger=logger)
-
     ##########################
-    # 9. ENTER MAIN FUNCTION #
+    # 8. ENTER MAIN FUNCTION #
     ##########################
     logger.info(f"Entering main function")
     main(debug, config, logger, component_objects, plugin_objects, interface_objects)

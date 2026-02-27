@@ -26,3 +26,17 @@ def InvalidComponentSpecifiedError(Exception):
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)
+
+def SystemProcessManagerError(Exception):
+    """ Raised when issues occur with the SystemProcessManager object
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+def SystemNetworkingManagerError(Exception):
+    """ Raised when issues occur with the SystemNetworkingManager object
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
