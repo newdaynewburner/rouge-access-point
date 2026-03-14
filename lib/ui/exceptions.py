@@ -6,6 +6,13 @@ Custom exception definitions
 
 import warnings
 
+class ApplicationConsoleError(Exception):
+    """ Raised when an error occurs within the ApplicationConsole object
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class ConsoleCommandError(Exception):
     """ Raised when an error occurs executing a command from the console interface
     """

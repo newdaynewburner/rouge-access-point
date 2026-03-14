@@ -6,6 +6,7 @@ Console interface for issuing commands
 
 import os
 import sys
+import time
 import subprocess
 import threading
 import configparser
@@ -14,7 +15,7 @@ from . import commands
 from . import exceptions
 
 class ApplicationConsole(object):
-    """ Contains the primary application interface
+    """ Console interface
     """
 
     def __init__(self, components, plugins, interfaces, config=None, logger=None):
@@ -25,133 +26,71 @@ class ApplicationConsole(object):
         self.components = components
         self.plugins = plugins
         self.interfaces = interfaces
-        self.commands = commands.ConsoleCommands(self, components, interfaces, config=self.config, logger=self.logger)
-        self.expected_input_source = "user"
-        self.command_sequence = []
 
-    def console_interface(self):
-        """ Main interface
+    def _yn_user_prompt(self, message):
+        """ Prompt the user to answer yes or no
         """
-        def _parse_command(command_string):
-            """ Parse the raw command string into the base command and its arguments
-            and return both
-            """
-            parts = command_string.split(" ")
-            command = parts[0]
-            if len(parts) > 1:
-                args = parts[1:]
-            else:
-                args = []
-            print(command)
-            print(args)
-            return command, args
-
-        # Loop until shutdown initiated
-        self.commands.banner(clear=True)
         while True:
-            # Determine input source, get the input, and parse it
-            if self.expected_input_source == "user":
-                # Get user input
-                command_string = input("> ")
-            elif self.expected_input_source == "scripted":
-                # Get scripted inputs
-                if not self.command_sequence:
-                    raise exceptions.ConsoleCommandError(f"Cannot have scripted input without a CommandSequence!")
-                try:
-                    command_string = self.command_sequence.pop(0)
-                except IndexError:
-                    print("No commands left in sequence! Returning to console!")
-                    self.expected_input_source = "user"
-                    continue
+            response = input(f"{message} [Y/N]: ")
+            if response.lower() in ("y", "yes"):
+                return True
+            elif response.lower() in ("n", "no"):
+                return False
             else:
-                raise exceptions.ConsoleCommandError(f"An invalid value for expected_input_source was given! Acceptable values are: user, scripted")
-            command, args = _parse_command(command_string)
-            if command[0] == "#":
-                continue
-            self.commands.history(new_hist_cmd=command_string)
+                self.logger.warning(f"Got invalid response to Y/N user prompt: {response}")
+                print("Invalid response. Please respond with either 'Y' or 'N'.")
 
-            ####################
-            # CONSOLE COMMANDS #
-            ####################
-            if command in ("?", "help"):
-                # Show the help message
-                self.commands.help_()
+    def _continue_user_prompt(self):
+        """ Prompt the user to press enter
+        """
+        input("Press [ENTER] to continue...")
+        return None
 
-            elif command in ("exit"):
-                # Exit and shutdown
-                shutdown_confirmed = self.commands.exit_()
-                if shutdown_confirmed:
-                    break
+    def _cmd_user_prompt(self):
+        """ Prompt the user for the next command
+        """
+        while True:
+            cmd_str = input("> ")
+            if cmd_str != "":
+                break
+        cmd, args = commands.command_parser(cmd_str)
+        return cmd, args
 
-            elif command in ("clear"):
-                # Clear the screen
-                self.commands.clear()
+    def ui_entrypoint(self):
+        """ Entrypoint into the console interface
+        """
+        if self._yn_user_prompt("Initialization sequence complete! Bring the AP up now?"):
+            print("Bringing the AP up now...")
+            self.logger.info(f"User opted for immediate launch. Bringing the AP up.")
+            for component in ("ap-host", "dhcp-server", "dns-server"):
+                self.logger.info(f"Starting component '{component}' via call to DBus API endpoint Start")
+                api_client = self.components[component].get_api()
+                api_client.Start()
+                if component == "ap-host":
+                    time.sleep(5)
+            self.logger.info(f"AP is now up!")
+            print("...Done! The AP is now up! It should be visible to client devices and ready to accept connections!")
+            self._continue_user_prompt()
+        subprocess.call(["clear"])
+        print(elements.BANNER)
+        self.command_loop()
+        return None
 
-            elif command in ("banner"):
-                # Show the banner
-                clear = False
-                if len(args) > 0:
-                    if len(args) == 1 and args[0] == "-c":
-                        clear = True
-                    else:
-                        raise exceptions.ConsoleCommandError(f"Invalid usage for command: {command}")
-                self.commands.banner(clear=clear)
-
-            elif command in ("shell"):
-                # Start a Bash shell
-                self.commands.shell()
-
-            elif command in ("history"):
-                # Show the command history
-                self.commands.history()
-
-            ######################
-            # COMPONENT COMMANDS #
-            ######################
-            elif command in ("start"):
-                # Start a component
-                self.commands.start(args[0])
-
-            elif command in ("stop"):
-                # Stop a component
-                self.commands.stop(args[0])
-
-            elif command in ("restart"):
-                # Restart a component
-                self.commands.restart(args[0])
-
-            elif command in ("configure"):
-                # Configure a component
-                self.commands.configure(args[0], args[1], args[2])
-
-            ######################
-            # SCRIPTING COMMANDS #
-            ######################
-            elif command in ("exec-sequence"):
-                """ Execute a list of commands sequentially
-                """
-                self.command_sequence = self.commands.exec_sequence(args[0])
-                self.expected_input_source = "scripted"
-
-            ##################
-            # ERROR HANDLING #
-            ##################
-            else:
-                raise exceptions.ConsoleCommandError(f"Invalid command '{command}'! See '?' or 'help' for a list of commands")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    def command_loop(self):
+        """ Main command loop
+        """
+        while True:
+            cmd, args = self._cmd_user_prompt()
+            if cmd == "help":
+                print("COMMAND LIST:")
+                print("help")
+                print("shell")
+                print("exit")
+            elif cmd == "shell":
+                subprocess.call(["bash"])
+            elif cmd == "exit":
+                break
+        return None
 
 
 

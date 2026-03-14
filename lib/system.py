@@ -41,15 +41,18 @@ class SystemNetworkingManager(object):
     """ Handles system level networking configuration tasks
     """
 
-    def __init__(self, interfaces, config=None, logger=None):
+    def __init__(self, components, plugins, interfaces, config=None, logger=None):
         """ Initialize the object
         """
         self.config = config
         self.logger = logger
+        self.components = components
+        self.plugins = plugins
         self.interfaces = interfaces
         self.radio_blocked = None
         self.ip_forwarding_enabled = None
         self.masquerading_enabled = None
+        self.enforce_local_dns = None
         self.traffic_forwarding_enabled = None
 
     def master_radio_block(self):
@@ -91,35 +94,72 @@ class SystemNetworkingManager(object):
         try:
             if val:
                 self.masquerading_enabled = True
-                subprocess.call(["iptables", "-t", "nat", "-A", "POSTROUTING", "-o", self.interfaces["broadcast"].name, "-j", "MASQUERADE"])
+                subprocess.call(["iptables", "-t", "nat", "-A", "POSTROUTING", "-o", self.interfaces["forward"].name, "-j", "MASQUERADE"])
             else:
                 self.masquerading_enabled = False
-                subprocess.call(["iptables", "-t", "nat", "-D", "POSTROUTING", "-o", self.interfaces["broadcast"].name, "-j", "MASQUERADE"])
+                subprocess.call(["iptables", "-t", "nat", "-D", "POSTROUTING", "-o", self.interfaces["forward"].name, "-j", "MASQUERADE"])
         except subprocess.CalledProcessError as err_msg:
             raise exceptions.SystemNetworkingManagerError(f"Failed to change masquerading settings! Error message: {err_msg}")
         return None
 
-    def forward_traffic(self):
+    def force_local_dns(self, val):
+        """ Forcibly route all DNS traffic to the local DNS server
+        """
+        try:
+            if val:
+                self.enforce_local_dns = True
+
+                subprocess.call(["iptables", "-t", "nat", "-A", "PREROUTING", "-i", self.interfaces["broadcast"].name, "-p", "udp", "--dport", "53", "-j", "DNAT", "--to", self.config["NETWORK"]["dns_server"]])
+            else:
+                self.enforce_local_dns = False
+                subprocess.call(["iptables", "-t", "nat", "-D", "PREROUTING", "-i", self.interfaces["broadcast"].name, "-p", "udp", "--dport", "53", "-j", "DNAT", "--to", self.config["NETWORK"]["dns_server"]])
+        except subprocess.CalledProcessError as err_msg:
+            raise exceptions.SystemNetworkingManagerError(f"Failed to route DNS traffic to local resolver! Error message: {err_msg}")
+        return None
+
+    def force_http_to_portal(self, val, portal_ip=None, portal_port=None):
+        """ Redirect HTTP traffic to the captive portal
+        """
+        try:
+            if val:
+                subprocess.call(["iptables", "-t", "nat", "-A", "PREROUTING", "-i", self.interfaces["broadcast"].name, "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to", f"{portal_ip}:{portal_port}"])
+            else:
+                subprocess.call(["iptables", "-t", "nat", "-D", "PREROUTING", "-i", self.interfaces["broadcast"].name, "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to", f"{portal_ip}:{portal_port}"])
+        except subprocess.CalledProcessError as err_msg:
+            raise exceptions.SystemNetworkingManagerError(f"Failed to redirect HTTP traffic to the portal! Error message: {err_msg}")
+        return None
+
+    def forward_traffic(self, mode="default", portal_ip=None, portal_port=None):
         """ Forward traffic from the broadcast interface to the forward interface
         """
         try:
             self.traffic_forwarding_enabled = True
-            for command in [
-                ["iptables", "-A", "FORWARD", "-i", self.interfaces["forward"].name, "-o", self.interfaces["broadcast"].name, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"],
-                ["iptables", "-A", "FORWARD", "-i", self.interfaces["broadcast"].name, "-o", self.interfaces["forward"].name, "-j", "ACCEPT"]
-            ]:
-                subprocess.call(command)
+            if mode == "default":
+                for command in [
+                    ["iptables", "-A", "FORWARD", "-i", self.interfaces["forward"].name, "-o", self.interfaces["broadcast"].name, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"],
+                    ["iptables", "-A", "FORWARD", "-i", self.interfaces["broadcast"].name, "-o", self.interfaces["forward"].name, "-j", "ACCEPT"]
+                ]:
+                    subprocess.call(command)
+            elif mode == "captive-portal":
+                for command in [
+                    ["iptables", "-A", "FORWARD", "-i", self.interfaces["forward"].name, "-o", self.interfaces["broadcast"].name, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"],
+                    ["iptables", "-A", "FORWARD", "-i", self.interfaces["broadcast"].name, "-d", portal_ip, "-j", "ACCEPT"],
+                    ["iptables", "-A", "FORWARD", "-i", self.interfaces["broadcast"].name, "-o", self.interfaces["forward"].name, "-j", "REJECT"]
+                ]:
+                    subprocess.call(command)
+            else:
+                raise exceptions.SystemNetworkingManagerError(f"Invalid mode '{mode}' for forward_traffic()!")
         except subprocess.CalledProcessError as err_msg:
             raise exceptions.SystemNetworkingManagerError(f"Failed to enable traffic forwarding with error message: {err_msg}")
         return None
 
-def setup_system_networking(interfaces, config=None, logger=None):
+def setup_system_networking(interfaces, captive_portal=None, config=None, logger=None):
     """ Go through the series of configuration tasks necessary to operate a wireless AP
     """
     process_manager = SystemProcessManager(config=config, logger=logger)
     networking_manager = SystemNetworkingManager(interfaces, config=config, logger=logger)
 
-    # 1. Kill conflicting services as configured and ensure radios are unblocked
+    # Kill conflicting services as configured and ensure radios are unblocked
     if bool(config["SYSTEM"]["kill_networkmanager"]):
         process_manager.stop_service("NetworkManager.service")
     if bool(config["SYSTEM"]["kill_wpa_supplicant"]):
@@ -130,12 +170,12 @@ def setup_system_networking(interfaces, config=None, logger=None):
         process_manager.stop_service("dnsmasq.service")
     networking_manager.master_radio_unblock()
 
-    # 2. Remove interfaces from NetworkManager management if compatibility mode is enabled
-    if bool(config["SYSTEM"]["nm_compatability_mode"]):
+    # Remove interfaces from NetworkManager management if compatibility mode is enabled
+    if config["SYSTEM"]["nm_compatability_mode"] == "true":
         for interface in interfaces.values():
             interface.stop_management()
 
-    # 3. Assign addresses to the broadcast interface
+    # Assign addresses to the broadcast interface
     interfaces["broadcast"].set_state("down")
     interfaces["broadcast"].flush_ipaddrs()
     interfaces["broadcast"].add_ipaddr(config["NETWORK"]["gateway"], config["NETWORK"]["subnet_mask_cidr"])
@@ -143,15 +183,25 @@ def setup_system_networking(interfaces, config=None, logger=None):
         interfaces["broadcast"].set_hwaddr(config["AP"]["bssid"])
     interfaces["broadcast"].set_state("up")
 
-    # 4. Enable IP forwarding and masquerading
+    # Enable IP forwarding and masquerading
     networking_manager.set_ip_forwarding(True)
     networking_manager.set_masqueradeing(True)
 
-    # 5. If a forward interface is present, enable traffic forwarding
+    # (Captive Portal Only) Force DNS traffic to the local resolver and all HTTP traffic to the router, allowing return traffic but blocking Internet access
+    if captive_portal:
+        portal_ip, portal_port = captive_portal.split(":")
+        networking_manager.force_local_dns(True)
+        networking_manager.force_http_to_portal(True, portal_ip=portal_ip, portal_port=portal_port)
+
+    # If a forward interface is present, enable traffic forwarding
     if config["HARDWARE"]["forward_iface"]:
-        networking_manager.forward_traffic()
+        if captive_portal:
+            networking_manager.forward_traffic(mode="captive-portal", portal_ip=portal_ip, portal_port=portal_port)
+        else:
+            networking_manager.forward_traffic()
 
     return None
+
 
 def takedown_system_networking(interfaces, config=None, logger=None):
     """ Revert the changes made to the system networking configuration before quitting

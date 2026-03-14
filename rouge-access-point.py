@@ -30,12 +30,14 @@ def main(debug, config, logger, components, plugins, interfaces):
     # 9. SYSTEM NETWORKING SETUP TASKS #
     ####################################
     logger.info(f"Preforming system networking setup tasks")
-    system.setup_system_networking(interface, config=config, logger=logger)
+    system.setup_system_networking(components, plugins, interfaces, config=config, logger=logger)
 
     ##############################################################
     # 10. ENTER CONSOLE INTERFACE AND HANDLE COMMANDS UNTIL EXIT #
     ##############################################################
     logger.info(f"Entering console interface")
+    ui = console.ApplicationConsole(components, plugins, interfaces, config=config, logger=logger)
+    ui.ui_entrypoint()
 
     ########################################
     # 11. SYSTEM NETWORKING TAKEDOWN TASKS #
@@ -46,6 +48,11 @@ def main(debug, config, logger, components, plugins, interfaces):
     #######################
     # 12. STOP COMPONENTS #
     #######################
+    logger.info(f"Stopping component services")
+    for component in components.keys():
+        a = components[component].get_api()
+        a.Stop()
+        logger.info(f"Stopped component activity: {component}")
     logger.info(f"Stopping component daemons")
     for component in components.keys():
         d = components[component].get_daemon()
@@ -84,7 +91,7 @@ if __name__ == "__main__":
     debug = False
     force_reinstall = False
     config_file = "config/rouge-access-point.ini"
-    component_list = ["ap-host", "dhcp-server", "dns-server"]
+    component_list = ["ap-host", "dhcp-server", "dns-server", "web-server"]
     plugin_list = []
 
     for opt, arg in opts:

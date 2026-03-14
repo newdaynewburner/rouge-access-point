@@ -10,6 +10,23 @@ import subprocess
 from . import elements
 from . import exceptions
 
+def parse_command(cmd_str):
+    """ Parse a raw command string and return the command and its arguments
+    """
+
+    # Initialize empty variables for the command and arguments
+    command = ""
+    arguments = []
+
+    # Split the command string into a list by spaces and assign the values to the above placeholders
+    cmd_lst = cmd_str.split(" ")
+    command = cmd_lst[0]
+    arguments = cmd_lst[1:]
+    return command, arguments
+
+
+
+
 class ConsoleCommands(object):
     """ Contains the logic for console interface commands
     """
