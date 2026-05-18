@@ -7,6 +7,7 @@ import subprocess
 import logging
 import getopt
 import configparser
+from lib.listoperations import DnschefOverridesFile
 
 ##################################################
 # HELPER FUNCTIONS                               #
@@ -87,6 +88,8 @@ def gen_dnsmasq_conf(config, logger):
         logger.error(f"Failed to generate dnsmasq configuration file! Error message: {err_msg}")
         raise err_msg
     return config["CONFIG"]["dnsmasq_config_file"]
+
+def gen_dnschef_overrides_file()
 
 ##################################################################
 # OBJECTS                                                        #
