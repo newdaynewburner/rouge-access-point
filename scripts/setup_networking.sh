@@ -27,4 +27,7 @@ iptables -A FORWARD -i "$1" -o "$2" -j ACCEPT
 iptables -t nat -A PREROUTING -i "$1" -p udp --dport 53 -j REDIRECT --to-ports 53
 iptables -t nat -A PREROUTING -i "$1" -p tcp --dport 53 -j REDIRECT --to-ports 53
 
+# Block QUIC/HTTP3 (UDP port 443). Forces DoH to fall back to using TLS over TCP
+iptables -A FORWARD -p udp --dport 443 -j REJECT
+
 exit 0
